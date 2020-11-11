@@ -1,18 +1,35 @@
-name: CI for Scala3doc
+name: CI for Scala3doc - Fork mode!
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
+  pull_request_target:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: lampepfl/dotty:2020-04-24
 
     steps:
       - name: Git Checkout
         uses: actions/checkout@v2
+
+      - name: Test secrets
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run : |
+          REF=refs/pull/$PR_NUMBER/merge
+          echo $REF $PR_NUMBER
+          git fetch origin $REF:$REF
+          git checkout $REF
+
+      - name: Upload documentation to server
+        uses: azure/CLI@v1
+        env: 
+          AZURE_STORAGE_SAS_TOKEN: ${{ secrets.AZURE_STORAGE_SAS_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          inlineScript: |
+            git log -3
+            DOC_DEST=pr-$PR_NUMBER
+            echo uplading docs to https://scala3doc.virtuslab.com/$DOC_DEST
+            az storage container create --name $DOC_DEST --account-name scala3docstorage --public-access container
 
       - name: Compile and test
         run: |
